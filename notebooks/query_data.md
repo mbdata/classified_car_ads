@@ -121,5 +121,5 @@ We are left with a single file, 'outputfile_1', that we can now import into data
 
 copy to local:
 ```bash
-scp -P 2222 maria_dev@192.168.1.20:/home/maria_dev/used-cars-mb/results/outputfile1    \Users\Michael\Documents\Portfolio\classified_car_ads\data
+scp -P 2222 maria_dev@192.168.1.20:/home/maria_dev/used-cars-mb/results/outputfile1 ./
 ```
