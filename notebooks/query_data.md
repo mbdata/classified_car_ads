@@ -1,1 +1,1 @@
-## Querying the Data Using Hive
+# Querying the Data Using Hive
