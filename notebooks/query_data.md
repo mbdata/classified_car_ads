@@ -118,3 +118,8 @@ The concatenated file is created, but we still need to delete all of the origina
 rm -f 000000*
 ```
 We are left with a single file, 'outputfile_1', that we can now import into data analysis software, such as R.
+
+copy to local:
+```bash
+scp -P 2222 maria_dev@192.168.1.20:/home/maria_dev/used-cars-mb/results/outputfile1    C:\Users\Michael\Documents\Portfolio\classified_car_ads\data
+```
