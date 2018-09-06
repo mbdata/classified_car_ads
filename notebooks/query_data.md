@@ -58,3 +58,4 @@ ALTER TABLE used_cars_mb.events SET SERDEPROPERTIES ("timestamp.formats"="yyyy-M
 
 DESCRIBE used_cars_mb.events;
 ```
+Note that it is a requirement to prefix the table name 'events' with the name of the database in which we want the table schema to be located. In this case, we type 'used_cars_mb.events'. After specifying the field names and their data types, we need to ensure that the table has a reference to the location of our data in HDFS, which here is the full path '/user/maria_dev/cars_mb/ads'. Additionally, and particular to this dataset, the two fields we are storing as timestamps (date_created, date_last_seen) are not in the default SQL way (yyyy-mm-dd hh:mm:ss); to prevent an error, we will alter the table to recognize the extension to the timestamps using the ALTER TABLE command above. Finally, we output the table structure onto the command line.
