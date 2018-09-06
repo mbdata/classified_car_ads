@@ -59,3 +59,62 @@ ALTER TABLE used_cars_mb.events SET SERDEPROPERTIES ("timestamp.formats"="yyyy-M
 DESCRIBE used_cars_mb.events;
 ```
 Note that it is a requirement to prefix the table name 'events' with the name of the database in which we want the table schema to be located. In this case, we type 'used_cars_mb.events'. After specifying the field names and their data types, we need to ensure that the table has a reference to the location of our data in HDFS, which here is the full path '/user/maria_dev/cars_mb/ads'. Additionally, and particular to this dataset, the two fields we are storing as timestamps (date_created, date_last_seen) are not in the default SQL way (yyyy-mm-dd hh:mm:ss); to prevent an error, we will alter the table to recognize the extension to the timestamps using the ALTER TABLE command above. Finally, we output the table structure onto the command line.
+
+## Querying Data from the 'events' Table and Storing the Output in HDFS
+As our table is now created, we need to extract the data and store the output in a new folder in HDFS.
+
+In HDFS, create a new folder inside our main project folder, and call it query_results:
+```bash
+hdfs dfs -mkdir -p cars_mb/query_results
+```
+
+Go to the hive folder, and create a new textfile:
+```bash
+vi output_1
+```
+
+Enter the following query,
+```SQL
+USE used_cars_mb;
+
+insert overwrite directory 'cars_mb/query_results/'
+row format delimited
+fields terminated by '\t'
+stored as textfile
+select * from events
+where rand(123) < (30000/3552912);
+```
+and run it:
+```bash
+hive -f output_1
+```
+This will query the data to select all rows and fields from the table, and it will return approximately 30,000 rows that we will use as a sample for analysis. The output will be stored in our HDFS folder 'query_results'.
+
+Go to the 'query_results' folder to make sure that the output has indeed been stored:
+```bash
+hdfs dfs -ls cars_mb/query_results/
+```
+
+## Copy the Output Results to the Local Computer
+In my case, the output results were split into 25 files, each named like 000000_0, 000000_1,..., 000000_25. We would like to have the data as one file, however, so we will need to concatenate them. First, let's copy the data over to our local computer.
+
+Create a new folder in our main project directory, used-cars-mb:
+```bash
+mkdir results
+```
+
+Inside the 'results' folder, copy the output over from HDFS:
+```bash
+hdfs dfs -copyToLocal cars_mb/query_results/* ./
+```
+You should be able to see all 25 (or however many) files now on your local computer.
+
+Now let's run a bash command to concatenate them. Inside the 'results' folder:
+```bash
+cat $(ls) > outputfile_1
+```
+The concatenated file is created, but we still need to delete all of the original files:
+```bash
+rm -f 000000*
+```
+We are left with a single file, 'outputfile_1', that we can now import into data analysis software, such as R.
