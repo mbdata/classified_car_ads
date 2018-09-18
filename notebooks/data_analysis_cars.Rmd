@@ -1,0 +1,189 @@
+---
+#title: "data_analysis_cars"
+#author: "Michael Baranov"
+#date: "September 7, 2018"
+output: github_document
+always_allow_html: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Classified Ads for Cars
+
+## Preparation of Data
+
+```{r message=FALSE, warning=FALSE}
+#import necessary libraries
+library(ggplot2)
+library(reshape2)
+library(plyr)
+library(readr)
+library(data.table)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+set.seed(42)
+```
+
+```{r}
+#read classified car ads data into a dataframe
+data <- read.csv("~/Portfolio/classified_car_ads/data/cars.sample.csv", row.names=1)
+```
+
+```{r}
+#load the column names into a variable called column_names and apply it to the dataset
+column_names = c("Maker","Model","Mileage","Manufacture_Year","Engine_Displacement","Engine_Power","Body_Type","Color_Slug","STK_Year","Transmission","Door_Count","Seat_Count","Fuel_Type","Date_Created","Date_Last_Seen","Price_Eur")
+
+names(data) = column_names
+```
+
+```{r echo=FALSE}
+#view first 10 rows with bootstrap-themed dataframe
+head(data) %>%
+  kable() %>%
+  kable_styling()
+```
+
+
+```{r}
+#summary of all attributes in the dataset
+summary(data)
+```
+
+```{r}
+#data type of each attribute
+str(data)
+```
+
+## Data Discovery
+
+For easier understanding, I introduced several new columns, ListedTS, RemovedTS, DaysListed and Age. ListedTS and RemovedTS are timestamped values of when the cars are first listed for sale and when they are finally removed. DaysListed represents the number of days a car has been listed for sale in an ad, calculated as the difference between RemovedTS and ListedTS. The Age column shows how old, in days, the car is (since the Manufacture Year). 
+
+```{r}
+#replace the Date_Created and Date_Last_Seen columns with timestamped values: ListedTS and Removed TS
+data$ListedTS = strptime(data$Date_Created, '%Y-%m-%d %H:%M:%OS')
+data$RemovedTS = strptime(data$Date_Last_Seen, '%Y-%m-%d %H:%M:%OS')
+
+#new column called DaysListed, that finds the number of days a car has been listed in ads
+data$DaysListed = as.integer(ceiling(
+  difftime(data$RemovedTS, data$ListedTS, units = "days")))
+
+#new column called Age, that finds out the age of a particular listed car
+data$Age = as.integer(ceiling(
+  difftime(data$ListedTS, strptime(data$Manufacture_Year,'%Y'), units = "days")/365))
+```
+
+```{r echo=FALSE}
+#delete date_created and date_last_seen columns
+data = data[-c(14:15) ]
+```
+
+In the figure below we can see the distribution of the number of days cars are listed for sale. We found it reasonable to assume that cars listed for no longer than 42 days were sold, due to the drop in the number of ads at this point after the initial peak, which suggests that many of these cars were sold and had their ads removed. This date is represented by the red line, whereas the blue line represents the 60-day limit that was used by car ad agencies to remove car listings after this point. Any cars that were listed for more than 60 days had to be relisted for the same number of days.
+
+```{r warning=FALSE}
+#the distribution of the number of days cars are listed for sale
+ggplot(data, aes(x=DaysListed)) + 
+  geom_density(fill="darkorchid2", alpha=.35) +
+  geom_vline(aes(xintercept=42), color="red", linetype="dashed", size=1.3)+
+  geom_vline(aes(xintercept=60), color="blue", linetype="dashed", size=1.3)+
+  ggtitle("Distribution of Number of Days Cars are Listed for Sale")+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+This leads us to creating a new attribute called Sold, which represents whether a car has been sold or not, to be used for our analysis.
+
+```{r}
+data$Sold = data$DaysListed <= 42
+```
+
+Age is a significant characteristic of a car listed for sale. Looking at the distribution of age in years among the cars, we can see that the average age, as shown by the blue line, is 12 years. The most frequently listed cars are under a year old.
+
+```{r fig.align="center", warning=FALSE}
+ggplot(data, aes(x=Age)) + 
+  geom_density(fill="darkorchid2", alpha=.35) +
+  scale_x_continuous(limits = c(0, 30))+
+  geom_vline(aes(xintercept=mean(Age, na.rm=T)),color="blue", linetype="dashed", size=1)+
+  ggtitle("Distribution of Age of Cars, in Years")+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Mileage is another important feature, the distribution of which we plotted below. The average mileage (blue line) has a value of about 120,000 km. Note that the most frequently listed vehicles have a low mileage that is below 25,000 km.
+
+```{r warning=FALSE, fig.align="center"}
+ggplot(data, aes(x=Mileage)) + 
+  geom_density(fill="darkorchid2", alpha=.35) +
+  scale_x_continuous(limits = c(0, 250000))+
+  geom_vline(aes(xintercept=mean(Mileage, na.rm=T)), color="blue", linetype="dashed", size=1)+
+  ggtitle("Distribution of Mileage of Cars, in Kilometres")+
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+Another important question is to know what car brands are most advertised in the classifieds, and, given this information, compare how well they tend to sell. In the chart below we can see that the most advertised car brand is Volkswagen, but the top-selling brand is Skoda. Interestingly, Volkswagen is not close to being first place in terms of sales despite its dominant presence in the ads.
+
+```{r hist_1, fig.pos = 'h', fig.height=8, fig.width=5.5, fig.align="center", warning=FALSE, message=FALSE}
+require(forcats)
+total <- nrow(data)
+ggplot(data, aes(fct_rev(fct_infreq(Maker)), fill=Sold)) +
+  geom_bar() +
+  labs(x="", y="Percent of Ads in the Sample Set") +
+  scale_y_continuous(labels = function(x) sprintf("%.0f%%",x/total*100)) +
+  coord_flip() +
+  ggtitle("Most Advertised VS Most Sold Car Maker") +
+  theme(plot.title = element_text(hjust = 0.5))
+  
+```
+
+We also would like to know which car models appear in ads most frequently, and to compare their sales. From the chart, it appears that Skoda Octavia is the most advertised and the best-selling model. On the other hand, the Volkswagen Golf is listed almost as much as the Octavia, but it is one of the least popular cars overall.
+
+```{r hist_2, fig.pos = 'h', fig.height=4.5, fig.width=5.5, fig.align="center", message=FALSE}
+require(forcats)
+total <- nrow(data)
+data$Car <- paste(data$Maker, data$Model)
+bestCarsList <- fct_infreq(data$Car)
+data.bestCars <- data[data$Car %in%  levels(bestCarsList)[1:20],]
+ggplot(data.bestCars, aes(fct_rev(fct_infreq(Car)), fill=Sold)) +
+  geom_bar() + 
+  labs(x="", y="Percent of Ads in the Sample Set") +
+  scale_y_continuous(labels = function(x) sprintf("%.0f%%",x/total*100)) + 
+  coord_flip() + 
+  ggtitle("20 Most Advertised VS Most Sold Cars") +
+  theme(plot.title = element_text(hjust = 0.5))
+``` 
+
+Another question we would like to answer is how the price of the cars is distributed among those sold and unsold. For those sold, the price most frequently asked for and paid is 1,295.34 Euros.
+
+```{r warning=FALSE, fig.align = 'center'}
+ggplot(data[!(data$Sold),], aes(x=Price_Eur)) + 
+  geom_density(fill="darkorchid2", alpha=.35) +
+  scale_x_continuous(limits = c(0, 80000)) +
+  geom_vline(aes(xintercept=mean(Price_Eur, na.rm=T)), color="blue", linetype="dashed", size=1) +
+  ggtitle("Distribution of Prices, Unsold Cars") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r warning=FALSE, fig.align = 'center'}
+ggplot(data[data$Sold,], aes(x=Price_Eur)) + 
+  geom_density(fill="darkorchid2", alpha=.35) +
+  scale_x_continuous(limits = c(0, 80000)) +
+  geom_vline(aes(xintercept=mean(Price_Eur, na.rm=T)), color="blue", linetype="dashed", size=1) + 
+  ggtitle("Distribution of Prices, Sold Cars") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+```{r fig.height=11, fig.width=11}
+ggplot(data, aes(x=Maker, y=Price_Eur, fill=Maker)) +  
+  geom_boxplot() +
+  guides(fill=FALSE, color=FALSE)+
+  scale_y_log10(labels = function(x) format(x, scientific = FALSE)) +
+  coord_flip() +
+  ggtitle("Range of Prices for Each Car Maker") +
+  theme(plot.title = element_text(hjust = 0.5, size=18)) +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=18))
+```
+
+## Conclusion
+
+The analysis of this dataset was performed in R Studio. Throughout the data exploration and discovery the dataset was cleaned of outliers and engineered with new columns such as ListedTS, RemovedTS, Age and Sold. Important questions pertinent to this data were identified, such as the distribution of listed cars' age and mileage, the most advertised versus the most sold car brands and models, the distribution of car prices and the price of the best-selling cars were calculated.
+
