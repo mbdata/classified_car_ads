@@ -96,7 +96,7 @@ hdfs dfs -ls cars_mb/query_results/
 ```
 
 ## Copy the Output Results to the Local Computer
-In my case, the output results were split into 25 files, each named like 000000_0, 000000_1,..., 000000_25. We would like to have the data as one file, however, so we will need to concatenate them. First, let's copy the data over to our local computer.
+In my case, the output results were split into 25 files, each named like 000000_0, 000000_1,..., 000000_25. We would like to have the data as one file, however, so we will need to concatenate them. First, let's copy the data over from HDFS.
 
 Create a new folder in our main project directory, used-cars-mb:
 ```bash
@@ -107,19 +107,22 @@ Inside the 'results' folder, copy the output over from HDFS:
 ```bash
 hdfs dfs -copyToLocal cars_mb/query_results/* ./
 ```
-You should be able to see all 25 (or however many) files now on your local computer.
+
+You should be able to see all 25 (or however many) files in 'results'.
 
 Now let's run a bash command to concatenate them. Inside the 'results' folder:
 ```bash
 cat $(ls) > outputfile_1
 ```
+
 The concatenated file is created, but we still need to delete all of the original files:
 ```bash
 rm -f 000000*
 ```
-We are left with a single file, 'outputfile_1', that we can now import into data analysis software, such as R.
 
-copy to local:
+We are left with a single file, 'outputfile_1', that we can now copy to our local computer and import into data analysis software, such as R, which we will be using in the next section.
+
+Copy to local computer:
 ```bash
 scp -P 2222 maria_dev@192.168.1.20:/home/maria_dev/used-cars-mb/results/outputfile1 ./
 ```
