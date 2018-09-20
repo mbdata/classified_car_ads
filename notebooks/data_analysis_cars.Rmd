@@ -49,7 +49,7 @@ head(data) %>%
 ```
 
 
-```{r summary}
+```{r}
 #summary of all attributes in the dataset
 summary(data)
 ```
