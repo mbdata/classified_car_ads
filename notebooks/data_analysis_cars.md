@@ -376,7 +376,6 @@ diesel
 </tbody>
 </table>
 ``` r
-#summary of all attributes in the dataset
 summary(data)
 ```
 
