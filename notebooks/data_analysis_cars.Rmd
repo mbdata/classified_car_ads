@@ -220,7 +220,7 @@ test.data<- skoda[-train.rows,] # 20% data goes in here
 
 ```
 
-Next, we create a fit using randomForest with Price_Eur as the target variable; NOTE: "Model" had to be removed because of having too many levels -- need to fix and include
+Next, we create a fit using randomForest with Price_Eur as the target variable.
 
 ```{r}
 library(randomForest)
@@ -258,5 +258,6 @@ ggplot(df2, aes(x = Test, y = Prediction)) +
 
 ## Conclusion
 
-The analysis of this dataset was performed in R Studio. Throughout the data exploration and discovery the dataset was cleaned of outliers and engineered with new columns such as ListedTS, RemovedTS, Age and Sold. Important questions pertinent to this data were identified, such as the distribution of listed cars' age and mileage, the most advertised versus the most sold car brands and models, and the distribution of car prices. Finally, we created a price prediction model using the randomForest algorithm, and applied it to the Skoda brand of cars, for which we predicted prices with 93% accuracy. 
+The analysis of this dataset was performed in R Studio. Throughout the data exploration and discovery the dataset was cleaned of outliers and engineered with new columns such as ListedTS, RemovedTS, Age and Sold. 
+Important questions pertinent to this data were identified, such as the distribution of listed cars' age and mileage, the most advertised versus the most sold car brands and models, and the distribution of car prices. Finally, we created a price prediction model using the randomForest algorithm, and applied it to the Skoda brand of cars, for which we predicted prices with 93% accuracy. 
 

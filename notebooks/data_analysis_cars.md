@@ -619,7 +619,7 @@ train.data<- skoda[train.rows,] # 80% data goes in here
 test.data<- skoda[-train.rows,] # 20% data goes in here
 ```
 
-Next, we create a fit using randomForest with Price\_Eur as the target variable; NOTE: "Model" had to be removed because of having too many levels -- need to fix and include
+Next, we create a fit using randomForest with Price\_Eur as the target variable.
 
 ``` r
 library(randomForest)
