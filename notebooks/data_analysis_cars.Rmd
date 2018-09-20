@@ -48,9 +48,7 @@ head(data) %>%
   kable_styling()
 ```
 
-
 ```{r}
-#summary of all attributes in the dataset
 summary(data)
 ```
 
