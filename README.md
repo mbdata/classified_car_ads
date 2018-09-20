@@ -11,4 +11,4 @@ I am using Git Bash for Windows on my local server, so all of my terminal comman
 ## Contents
 1. [Loading data to Hadoop](https://github.com/mbdata/classified_car_ads/blob/master/notebooks/load_data.md)
 2. [Querying data using Hive](https://github.com/mbdata/classified_car_ads/blob/master/notebooks/query_data.md)
-3. [Exploratory Analysis] ()
+3. [Data Analysis and Price Prediction](https://github.com/mbdata/classified_car_ads/blob/master/notebooks/data_analysis_cars.md)
