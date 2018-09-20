@@ -10,7 +10,7 @@ always_allow_html: yes
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Classified Ads for Cars
+# Classified Ads for Cars: Data Analysis and Price Prediction
 
 ## Preparation of Data
 
@@ -24,6 +24,8 @@ library(data.table)
 library(knitr)
 library(kableExtra)
 library(dplyr)
+library(caret)
+library(randomForest)
 set.seed(42)
 ```
 
@@ -39,7 +41,7 @@ column_names = c("Maker","Model","Mileage","Manufacture_Year","Engine_Displaceme
 names(data) = column_names
 ```
 
-```{r echo=FALSE}
+```{r data_head, echo=FALSE}
 #view first 10 rows with bootstrap-themed dataframe
 head(data) %>%
   kable() %>%
@@ -47,12 +49,12 @@ head(data) %>%
 ```
 
 
-```{r}
+```{r summary}
 #summary of all attributes in the dataset
 summary(data)
 ```
 
-```{r}
+```{r str_type}
 #data type of each attribute
 str(data)
 ```
@@ -82,7 +84,7 @@ data = data[-c(14:15) ]
 
 In the figure below we can see the distribution of the number of days cars are listed for sale. We found it reasonable to assume that cars listed for no longer than 42 days were sold, due to the drop in the number of ads at this point after the initial peak, which suggests that many of these cars were sold and had their ads removed. This date is represented by the red line, whereas the blue line represents the 60-day limit that was used by car ad agencies to remove car listings after this point. Any cars that were listed for more than 60 days had to be relisted for the same number of days.
 
-```{r warning=FALSE}
+```{r dayslisted, warning=FALSE, fig.align="center"}
 #the distribution of the number of days cars are listed for sale
 ggplot(data, aes(x=DaysListed)) + 
   geom_density(fill="darkorchid2", alpha=.35) +
@@ -100,7 +102,7 @@ data$Sold = data$DaysListed <= 42
 
 Age is a significant characteristic of a car listed for sale. Looking at the distribution of age in years among the cars, we can see that the average age, as shown by the blue line, is 12 years. The most frequently listed cars are under a year old.
 
-```{r fig.align="center", warning=FALSE}
+```{r age, fig.align="center", warning=FALSE}
 ggplot(data, aes(x=Age)) + 
   geom_density(fill="darkorchid2", alpha=.35) +
   scale_x_continuous(limits = c(0, 30))+
@@ -111,7 +113,7 @@ ggplot(data, aes(x=Age)) +
 
 Mileage is another important feature, the distribution of which we plotted below. The average mileage (blue line) has a value of about 120,000 km. Note that the most frequently listed vehicles have a low mileage that is below 25,000 km.
 
-```{r warning=FALSE, fig.align="center"}
+```{r mileage, warning=FALSE, fig.align="center"}
 ggplot(data, aes(x=Mileage)) + 
   geom_density(fill="darkorchid2", alpha=.35) +
   scale_x_continuous(limits = c(0, 250000))+
@@ -152,18 +154,24 @@ ggplot(data.bestCars, aes(fct_rev(fct_infreq(Car)), fill=Sold)) +
   theme(plot.title = element_text(hjust = 0.5))
 ``` 
 
-Another question we would like to answer is how the price of the cars is distributed among those sold and unsold. For those sold, the price most frequently asked for and paid is 1,295.34 Euros.
+Another question we would like to answer is how the price of the cars is distributed among those sold and unsold.
 
-```{r warning=FALSE, fig.align = 'center'}
-ggplot(data[!(data$Sold),], aes(x=Price_Eur)) + 
-  geom_density(fill="darkorchid2", alpha=.35) +
-  scale_x_continuous(limits = c(0, 80000)) +
-  geom_vline(aes(xintercept=mean(Price_Eur, na.rm=T)), color="blue", linetype="dashed", size=1) +
-  ggtitle("Distribution of Prices, Unsold Cars") +
-  theme(plot.title = element_text(hjust = 0.5))
+For those sold, the price most frequently asked for and paid is 1,295.34 Euros, which we calculated using the mode function below. Why is this very specific price quoted so many times in this dataset? After examining a subset of the data with rows belonging only to this price, and seeing that this set contains cars of varying age, mileage and other attributes, we believe that this must have been an erroneous collection of data. As such, it would need to be further analyzed or removed (something that we are not conducting here).
+
+```{r}
+#create mode function
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
 ```
 
-```{r warning=FALSE, fig.align = 'center'}
+```{r}
+#calculate mode
+Mode(data$Price_Eur)
+```
+
+```{r prices_sold, warning=FALSE, fig.align = 'center'}
 ggplot(data[data$Sold,], aes(x=Price_Eur)) + 
   geom_density(fill="darkorchid2", alpha=.35) +
   scale_x_continuous(limits = c(0, 80000)) +
@@ -172,18 +180,85 @@ ggplot(data[data$Sold,], aes(x=Price_Eur)) +
   theme(plot.title = element_text(hjust = 0.5))
 ```
 
-```{r fig.height=11, fig.width=11}
+```{r prices_unsold, warning=FALSE, fig.align = 'center'}
+ggplot(data[!(data$Sold),], aes(x=Price_Eur)) + 
+  geom_density(fill="darkorchid2", alpha=.35) +
+  scale_x_continuous(limits = c(0, 80000)) +
+  geom_vline(aes(xintercept=mean(Price_Eur, na.rm=T)), color="blue", linetype="dashed", size=1) +
+  ggtitle("Distribution of Prices, Unsold Cars") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+We would also like to see how the prices vary across all brands and if there are any outliers in the data. In the chart below, we can see that there is a number of non-premium brands, such as those with prices under 50,000 Euros, and those that are premium, luxury or exotic brands, like those that reach above 75,000 Euros, namely Porsche, Lamborghini, Tesla and Bentley. The outliers that we see, which are past the whiskers of the boxplots, would need further analysis for us to indicate if they are real prices or errors. For the premium brands, such as Porsche, it is known that they sell models that cost up to 200,000 Euros, such as the 911 GT3 RS, Porsche's most expensive and quickest car.
+
+```{r boxplot1, fig.height=11, fig.width=11, warning=FALSE, message=FALSE}
 ggplot(data, aes(x=Maker, y=Price_Eur, fill=Maker)) +  
   geom_boxplot() +
   guides(fill=FALSE, color=FALSE)+
-  scale_y_log10(labels = function(x) format(x, scientific = FALSE)) +
   coord_flip() +
+  scale_y_continuous(limits = c(0, 200000)) +
   ggtitle("Range of Prices for Each Car Maker") +
   theme(plot.title = element_text(hjust = 0.5, size=18)) +
   theme(axis.text=element_text(size=12), axis.title=element_text(size=18))
 ```
 
+## Predicting the Price of Cars with randomForest
+
+Having explored some of the individual variables, it is now time to fit them into a price prediction model. We will be using the randomForest model, which is an ensemble learning method for classification, regression and other tasks, that operate by constructing a multitude of decision trees at training time and outputting the class that is the mode of the classes (classification) or mean prediction (regression) of the individual trees.
+
+Here, we will perform the prediction for only one brand of car, Skoda, because by including all the brands, the result of the prediction may be quite arbitrary (and the model will break from having too many levels).
+
+We begin by extracting a subset of data where the car maker is only Skoda; then we partition the data into train and test sets based on a respective 80/20 split.
+
+```{r}
+#create subset with only Skoda cars
+skoda = subset(data, data$Maker=="skoda")
+#fix the factor levels for the Model variable
+skoda$Model = factor(skoda$Model)
+#partition the data into train and test sets
+train.rows = createDataPartition(y= skoda$Price_Eur, p=0.8, list = FALSE)
+train.data<- skoda[train.rows,] # 80% data goes in here
+test.data<- skoda[-train.rows,] # 20% data goes in here
+
+```
+
+Next, we create a fit using randomForest with Price_Eur as the target variable; NOTE: "Model" had to be removed because of having too many levels -- need to fix and include
+
+```{r}
+library(randomForest)
+fitRF1 <- randomForest(
+  Price_Eur ~ Model+Mileage+Manufacture_Year+Engine_Displacement+Engine_Power+Body_Type+Color_Slug+Transmission+Fuel_Type+DaysListed+Age+Sold, method="anova",
+  data=train.data, importance=TRUE, ntree=500, na.action=na.exclude)
+```
+
+Now we can visualize the fit (below) to see which attributes have been considered most significant in relation to the target variable. We can see in the second plot that a car's age and the number of days it has been listed is ranked highly (note that both of these are new columns that we created to conduct a more thorough analysis). An important question is: How is age related to the price? It is doubtful that the age itself determines the price; it may be that newer cars are generally priced higher by nature of being new, in demand and fixed with the latest technology, and vice versa, so there could be a strong negative correlation between these two variables.
+
+```{r fitRF1, fig.align="center"}
+varImpPlot(fitRF1)
+```
+
+Next, we assign our fit to the prediction model and apply it to the test data. Having done so, we calculated the correlation between the actual and predicted price vectors to be 93%!
+
+```{r results=FALSE}
+PredictionRF1 <- predict(fitRF1, test.data)
+cor(x=PredictionRF1,y=test.data$Price_Eur, use="complete.obs")   #93.63%
+```
+
+Plotting the actual against predicted prices, the correlation appears to be significant for cars priced under 20,000 Euros.
+
+```{r predictionRF1, fig.pos = 'h', fig.height=6.5, fig.width=6.5, fig.align="center", message=FALSE, warning=FALSE}
+df2 = data.frame(test.data$Price_Eur, PredictionRF1)
+colnames(df2) <- c("Test","Prediction")
+ggplot(df2, aes(x = Test, y = Prediction)) +
+  geom_jitter(width = 0.25, pch=20, col=rgb(0.1, 0.2, 0.8, 0.3)) +
+  geom_point(size=1, color='blue') +
+  geom_smooth(method='lm', method.args=list(family="symmetric")) +
+  theme(plot.title = element_text(hjust = 0.5, size=18)) +
+  theme(axis.text=element_text(size=12), axis.title=element_text(size=14)) +
+  ggtitle("Scatterplot of Predicted vs Actual Prices")
+```
+
 ## Conclusion
 
-The analysis of this dataset was performed in R Studio. Throughout the data exploration and discovery the dataset was cleaned of outliers and engineered with new columns such as ListedTS, RemovedTS, Age and Sold. Important questions pertinent to this data were identified, such as the distribution of listed cars' age and mileage, the most advertised versus the most sold car brands and models, the distribution of car prices and the price of the best-selling cars were calculated.
+The analysis of this dataset was performed in R Studio. Throughout the data exploration and discovery the dataset was cleaned of outliers and engineered with new columns such as ListedTS, RemovedTS, Age and Sold. Important questions pertinent to this data were identified, such as the distribution of listed cars' age and mileage, the most advertised versus the most sold car brands and models, and the distribution of car prices. Finally, we created a price prediction model using the randomForest algorithm, and applied it to the Skoda brand of cars, for which we predicted prices with 93% accuracy. 
 
